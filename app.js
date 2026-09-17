@@ -133,8 +133,9 @@ const FORCED_REP = (() => {
 // 10 fps — one third of the source rate.  Every QoE figure here (buffer
 // seconds, stall, playback fps) is relative to THIS rate, not the source's.
 // Small pools (mobile default, or ?workers=2) can't sustain 10 fps of decode,
-// so playback drops to 5 fps to keep the decoder ahead of the play head.
-const TARGET_FPS       = MAX_WORKERS <= 2 ? 5 : 10;
+// so playback drops to 3 fps — cutting decoder demand by ~2/3 versus desktop,
+// which lets the buffer rule climb past r03 on phones instead of thrashing.
+const TARGET_FPS       = MAX_WORKERS <= 2 ? 3 : 10;
 // No pre-roll: start playback the instant the first frame can be rendered.
 const INITIAL_BUFFER_FRAMES = 1;
 const BUFFER_AHEAD_SEC = 3;
