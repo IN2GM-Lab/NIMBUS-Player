@@ -105,11 +105,20 @@ const mDecodePoolFps   = document.getElementById('mDecodePoolFps');
 const bitrateDist      = document.getElementById('bitrateDist');
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-// Worker-pool size. Defaults to 16; override with ?workers=N for experiments.
-// 16 × 64 MB WASM heap = ~1 GB baseline (INITIAL_MEMORY is 64 MB in this build).
+// Worker-pool size. Override with ?workers=N for experiments.
+// Auto-scales for the device — 16 × 64 MB WASM heap = ~1 GB baseline, which
+// mobile tabs (capped at ~500 MB–1 GB) OOM-kill before the first decode.
+// Desktop: 16 · low-core desktop: 4 · mobile / low-memory: 2.
 const MAX_WORKERS = (() => {
   const v = parseInt(new URLSearchParams(location.search).get('workers'), 10);
-  return Number.isFinite(v) && v > 0 ? v : 16;
+  if (Number.isFinite(v) && v > 0) return v;
+  const cores    = navigator.hardwareConcurrency || 4;
+  const memGb    = navigator.deviceMemory || 0;   // undefined on Safari
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) return 2;
+  if (memGb && memGb <= 4) return 2;
+  if (cores <= 4) return 4;
+  return 16;
 })();
 // Pin the representation (?rep=N) for controlled worker-scaling tests — every
 // worker count then decodes identical frames, so per-frame timings compare.

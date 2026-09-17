@@ -1256,3 +1256,56 @@ body {
   border: 1px solid var(--panel-border);
   font-family: 'SF Mono', 'Cascadia Code', monospace;
 }
+
+/* ── Responsive: phones and narrow tablets ─────────────────────────────────── */
+@media (max-width: 900px) {
+  .layout {
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px 8px;
+  }
+  .canvas-col {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+  .canvas-panel {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+  .sidebar {
+    flex: 0 0 auto;
+    min-width: 0;
+    width: 100%;
+    max-height: none;
+    overflow-y: visible;
+    grid-template-columns: 1fr;
+  }
+  .topbar {
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    row-gap: 6px;
+  }
+  .url-bar {
+    flex-wrap: wrap;
+    width: 100%;
+    row-gap: 6px;
+  }
+  .url-bar input {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .top-actions {
+    flex-wrap: wrap;
+    width: 100%;
+    row-gap: 6px;
+  }
+  .top-actions .ghost-btn { flex: 1 1 auto; }
+}
+
+@media (max-width: 520px) {
+  .canvas-panel { aspect-ratio: 1 / 1; }
+  .topbar { padding: 6px 8px; }
+  .brand { font-size: 14px; }
+}
