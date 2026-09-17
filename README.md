@@ -4,7 +4,7 @@ NIMBUS is a browser-native player for dynamic adaptive streaming of G-PCC compre
 
 ## Try it
 
-**Site is hosted at:** `<PLACEHOLDER — add GitHub Pages URL here>`
+**Site is hosted at:** https://in2gm-lab.github.io/NIMBUS-Player/
 
 Open the link in a modern desktop browser (Chrome/Edge recommended). Pick a sequence from the dropdown and press **Load** — playback starts as soon as the first frame decodes, quality adapts automatically from there. No downloads or setup: the demo content is served from a public Cloudflare R2 bucket with CORS enabled, so everything runs in your browser.
 
