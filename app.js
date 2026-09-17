@@ -1,22 +1,19 @@
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const mpdUrlInput  = document.getElementById('mpdUrl');
-// Auto-fill the MPD URL using the page's current host, so the default works
-// unchanged from a phone, another machine on the LAN, or a tunnel — without
-// anyone having to know the server's IP.  The path matches the layout the
-// content download unpacks into (data/<sequence>/stream.mpd); the sequence
-// picker next to the field switches between the downloaded sequences, and any
-// other MPD URL — including one on a different origin — can be typed in.
-const DEFAULT_MPD_PATH = 'data/octree-longdress/stream.mpd';
-if (mpdUrlInput && location.host) {
-  mpdUrlInput.value = `${location.protocol}//${location.host}/${DEFAULT_MPD_PATH}`;
+// Default MPD URLs point at the public Cloudflare R2 bucket hosting the demo
+// content, so the site works from any origin (GitHub Pages, a phone, a laptop)
+// with no local content required. Any other MPD URL — including one on a
+// different origin — can be typed into the field.
+const DEFAULT_MPD_URL = 'https://pub-3bb5b49d671a4ede814989964fc9bd22.r2.dev/octree-longdress/stream.mpd';
+if (mpdUrlInput) {
+  mpdUrlInput.value = DEFAULT_MPD_URL;
 }
-// Sequence picker: rewrite the MPD field to the chosen sequence, keeping
-// whatever origin the page is served from.
+// Sequence picker: rewrite the MPD field to the chosen sequence.
 const seqSel = document.getElementById('seqSel');
 if (seqSel) {
   seqSel.addEventListener('change', () => {
     if (!seqSel.value) return;
-    mpdUrlInput.value = `${location.protocol}//${location.host}/${seqSel.value}`;
+    mpdUrlInput.value = seqSel.value;
   });
 }
 const loadBtn      = document.getElementById('loadBtn');

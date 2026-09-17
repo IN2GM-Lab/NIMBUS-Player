@@ -2,7 +2,19 @@
 
 NIMBUS is a browser-native player for dynamic adaptive streaming of G-PCC compressed point clouds. It pairs the first browser-native G-PCC decoder, compiled from the MPEG reference TMC13 codec to WebAssembly, with DASH-compliant segment delivery, parallel Web Worker decoding, and buffer-aware bitrate adaptation, enabling 6DoF volumetric playback directly in the browser with no plugins, native binaries, or server-side decoding.
 
-Point a modern browser at an MPD, and NIMBUS fetches, decodes, and renders compressed point cloud video with orbit or fly navigation.
+## Try it
+
+**Site is hosted at:** `<PLACEHOLDER — add GitHub Pages URL here>`
+
+Open the link in a modern desktop browser (Chrome/Edge recommended). Pick a sequence from the dropdown and press **Load** — playback starts as soon as the first frame decodes, quality adapts automatically from there. No downloads or setup: the demo content is served from a public Cloudflare R2 bucket with CORS enabled, so everything runs in your browser.
+
+| Control | Action |
+|---------|--------|
+| `Space` | play / pause |
+| `V` | switch orbit ↔ fly navigation |
+| `WASD` + mouse, `Q`/`E` | move / look / roll (fly mode) |
+| `←` / `→` (`Shift` for ×10) | step frames |
+| `0`, `F`, `R`, `L` | reset view, fullscreen, auto-rotate, loop |
 
 ## Citation
 
@@ -18,12 +30,6 @@ If you use this work, please cite our paper:
 }
 ```
 
-## Get the code
-```bash
-git clone https://github.com/IN2GM-Lab/NIMBUS-Player.git
-cd NIMBUS-Player
-```
-
 ## Features
 - **Browser-native G-PCC decoding:** The reference TMC13 decoder compiled to WebAssembly via Emscripten, covering octree, predictive, and trisoup geometry plus RAHT and lifting attribute decoding. No native dependencies, no server-side decode.
 - **Group-of-Frames packaging:** A modified TMC13 encoder bundles N independently decodable frames into a single DASH-compliant segment by re-emitting parameter sets at each frame boundary, cutting per-frame HTTP request overhead.
@@ -33,84 +39,7 @@ cd NIMBUS-Player
 - **Rendering controls:** Point size, size attenuation, per-vertex coloring, reusable buffer geometry, and first-frame normalization for temporal stability.
 - **Live metrics sidebar:** Playback status, buffer level, throughput history, per-segment quality timeline, decode latency statistics, and bitrate distribution.
 
-## Requirements
-- Modern desktop browser with multi-core support (Chrome/Edge recommended)
-- Simple HTTP server to host the page and serve the encoded segments
-- Emscripten toolchain if rebuilding the WASM decoder from source
-
-## Run locally
-
-NIMBUS ships the player only — point cloud content is downloaded separately.
-
-### 1. Get content
-
-Pre-encoded, ready-to-stream sequences are available here:
-
-**https://in2gm.encs.concordia.ca/s/NqK3PtqJw3n3Kcj**
-
-Each sequence is a complete DASH stream: a `stream.mpd` manifest plus five
-representations (`r01`–`r05`), 600 segments per representation, 10 frames per
-segment. Unpack the download into a `data/` folder at the repository root:
-
-```bash
-mkdir -p data
-# unpack the downloaded archive into data/
-```
-
-so that the tree looks like this:
-
-```
-NIMBUS-Player/
-├── index.html, app.js, worker.js, …     the player
-└── data/
-    ├── octree-longdress/                stream.mpd + r01/ … r05/
-    ├── octree-soldier/                  stream.mpd + r01/ … r05/
-    └── octree-redandblack/              stream.mpd + r01/ … r05/
-```
-
-`data/` is listed in `.gitignore`, so downloaded content is never committed by
-accident. To stream your own sequences instead, see
-[Encoding your own content](#encoding-your-own-content).
-
-### 2. Serve the folder
-
-```bash
-python3 serve.py 10000 .
-```
-
-`serve.py` is a static file server that adds permissive CORS headers, disables
-caching, and serves `.wasm` with the correct MIME type. A plain
-`python3 -m http.server` is not sufficient: it sends no
-`Access-Control-Allow-Origin`, so the browser blocks the MPD and segment
-fetches.
-
-The player and the content do not have to share an origin. To serve them
-separately — useful when the dataset lives on another machine — run a second
-instance and paste that MPD URL into the player:
-
-```bash
-python3 serve.py 11000 /path/to/sequences     # data on another port or host
-```
-
-### 3. Play
-
-Open **http://localhost:10000**, pick a sequence from the dropdown beside the
-MPD field, and press **Load**. Playback starts as soon as the first frame
-decodes; quality adapts automatically from there.
-
-The MPD URL is built from the page's own origin, so the same address works from
-another machine or a phone on the network (`http://<server-ip>:10000`). Any
-other MPD URL can also be typed into the field directly.
-
-| Control | Action |
-|---------|--------|
-| `Space` | play / pause |
-| `V` | switch orbit ↔ fly navigation |
-| `WASD` + mouse, `Q`/`E` | move / look / roll (fly mode) |
-| `←` / `→` (`Shift` for ×10) | step frames |
-| `0`, `F`, `R`, `L` | reset view, fullscreen, auto-rotate, loop |
-
-### Options
+## Options
 
 Two URL parameters are useful for experiments:
 
@@ -119,55 +48,21 @@ Two URL parameters are useful for experiments:
 | `?workers=N` | Decode pool size (default 16). |
 | `?rep=N` | Pin the representation, 0-indexed (`?rep=3` = `r04`), bypassing ABR. |
 
-For example `http://localhost:10000/?workers=8&rep=3` decodes a fixed quality
-with an 8-worker pool — pinning the representation is what makes worker-count
-sweeps comparable, since every pool size then decodes identical frames.
-
 For automated runs, `window.__nimbus.snapshot()` returns the live player state
 as a plain object — per-stage timings (`tlvSplitMs`, `wasmDecodeMs`,
 `plyParseMs`, `gpuUploadMs`), `stallS`, `bufferS`, `framesRendered`,
 `achievedFps`, `deliveredBitrateBps` and more — which can be polled over the
 DevTools Protocol for headless measurement.
 
-## Encoding your own content
+## Running your own copy
 
-NIMBUS streams **multi-frame G-PCC segments**: each segment carries N
-consecutive frames, and every frame within it is independently decodable
-because the parameter sets are re-emitted at each frame boundary. That is what
-lets the worker pool decode the frames of one segment in parallel.
+To host the player yourself or serve different content:
 
-The modified TMC13 encoder that produces this packaging is available here:
+1. Clone this branch.
+2. Point the MPD URLs in `app.js` (`DEFAULT_MPD_URL`) and `index.html` (the sequence dropdown) at your own CORS-enabled stream host.
+3. Serve the folder as a static site — GitHub Pages, Cloudflare Pages, Netlify, or any static host with HTTPS works.
 
-**https://github.com/IN2GM-Lab/mpeg-pcc-tmc13**
-
-Use it to encode your own point cloud sequences into the multi-frame G-PCC
-format NIMBUS expects, at as many rate points as you want representations.
-
-To publish an encoded sequence:
-
-1. Put each rate point in its own folder (`r01`, `r02`, …), one `.bin` per
-   segment, zero-padded and numbered from 1 (`0001.bin`, `0002.bin`, …).
-2. Write a `stream.mpd` beside those folders. NIMBUS reads a standard
-   `SegmentTemplate` — `media="$RepresentationID$/$Number%04d$.bin"` with
-   `timescale`, `duration` and `startNumber` — plus one `<Representation>` per
-   rate point carrying `id` and `bandwidth`. Representations are sorted by
-   `bandwidth`, so the ladder order comes from the manifest and nothing is
-   hardcoded in the player.
-3. Drop the folder into `data/` and either select it from the dropdown (edit
-   the three `<option>` values in `index.html`) or paste its MPD URL into the
-   field.
-
-Already have single- or multi-frame `.bin` segments? `tools/split_bins.py`
-re-packs them into the smaller, independently decodable sub-segments used here:
-
-```bash
-python3 tools/split_bins.py --base-dir data/my-sequence --frames-per-segment 10
-python3 tools/split_bins.py --base-dir data/my-sequence --move    # <rep>_split → <rep>
-```
-
-Rebuilding the decoder itself requires the Emscripten SDK and a TMC13 checkout;
-`tools/build-wasm.sh` holds the build flags used for the shipped
-`gpcc_decoder.wasm`.
+For encoding your own content into the multi-frame G-PCC format NIMBUS expects, see the [`main` branch](https://github.com/IN2GM-Lab/NIMBUS-Player) — it contains the local-development setup, the modified TMC13 encoder link, and content-packaging tools.
 
 ## File structure
 
@@ -178,10 +73,7 @@ worker.js           WASM decode + in-worker PLY parse (one instance per worker)
 gpcc_decoder.js     Emscripten glue for the TMC13 decoder
 gpcc_decoder.wasm   TMC13 decoder compiled to WebAssembly
 styles.css          UI styling
-serve.py            static file server with CORS headers and no-store caching
 vendor/             three.js and OrbitControls (MIT — see vendor/README.md)
-tools/              build-wasm.sh (decoder build), split_bins.py (re-packer)
-data/               downloaded content — not part of the repository
 ```
 
 The pipeline, end to end:
@@ -202,22 +94,14 @@ see that — a draining buffer is the one signal that reacts to either.
 
 ## Troubleshooting
 
-**"No manifest at …" or "No segment data found at r01/"** — the player loaded
-but the content did not. Check that the download was unpacked into `data/` with
-the layout shown in [Run locally](#run-locally), and that the folder names
-match the entries in the sequence dropdown.
-
-**Nothing loads, console shows a CORS error** — the page is being served by
-something that does not send `Access-Control-Allow-Origin` (for example
-`python3 -m http.server`). Use `serve.py`.
+**Blank canvas** — the browser needs WebGL2 and Web Workers; check that
+hardware acceleration is enabled.
 
 **Playback stalls or runs below the target frame rate** — decoding is the
-bottleneck, not the network. Raise the worker count (`?workers=24`), cap the
-quality ladder with the ABR ceiling selector in the sidebar, or use a sequence
-encoded at lower rate points. The sidebar's decode-latency panel shows
-per-worker cost, the effective per-frame interval, and the resulting pool
-throughput; if the effective interval exceeds the frame period, the buffer will
-drain no matter how fast the link is.
+bottleneck, not the network. Cap the quality ladder with the ABR ceiling
+selector in the sidebar, or lower `?workers=N` if peak memory is the concern.
+The sidebar's decode-latency panel shows per-worker cost, the effective
+per-frame interval, and the resulting pool throughput.
 
 **Console warning: "frames streamed but decoder returned -6"** — harmless. The
 decoder streams each frame out before returning, then re-collects frames from
@@ -230,9 +114,6 @@ from real failures (`decodeWarnings` vs `decodeErrors`).
 WASM heap grows with every decode and never shrinks, so workers are recycled
 after a fixed number of decodes. Lowering `?workers=N` reduces peak memory
 proportionally.
-
-**Blank canvas** — the browser needs WebGL2 and Web Workers; check that
-hardware acceleration is enabled.
 
 ## License
 
