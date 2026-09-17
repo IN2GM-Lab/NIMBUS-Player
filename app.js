@@ -107,16 +107,16 @@ const bitrateDist      = document.getElementById('bitrateDist');
 // ── Constants ─────────────────────────────────────────────────────────────────
 // Worker-pool size. Override with ?workers=N for experiments.
 // Auto-scales for the device — 16 × 64 MB WASM heap = ~1 GB baseline, which
-// mobile tabs (capped at ~500 MB–1 GB) OOM-kill before the first decode.
-// Desktop: 16 · low-core desktop: 4 · mobile / low-memory: 2.
+// mobile tabs (capped at ~1.5 GB on modern phones) OOM-kill on load.
+// Desktop: 16 · low-core desktop: 4 · mobile / low-memory: 8.
 const MAX_WORKERS = (() => {
   const v = parseInt(new URLSearchParams(location.search).get('workers'), 10);
   if (Number.isFinite(v) && v > 0) return v;
   const cores    = navigator.hardwareConcurrency || 4;
   const memGb    = navigator.deviceMemory || 0;   // undefined on Safari
   const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile) return 2;
-  if (memGb && memGb <= 4) return 2;
+  if (isMobile) return 8;
+  if (memGb && memGb <= 4) return 4;
   if (cores <= 4) return 4;
   return 16;
 })();
@@ -131,9 +131,9 @@ const FORCED_REP = (() => {
 // but the MPD declares one second per 10-frame segment, so the player runs at
 // 10 fps — one third of the source rate.  Every QoE figure here (buffer
 // seconds, stall, playback fps) is relative to THIS rate, not the source's.
-// Raising it to 30 gives native-rate playback, but needs a decode pool that
-// sustains 30 frames/s.
-const TARGET_FPS       = 10;
+// Small pools (mobile default, or ?workers=2) can't sustain 10 fps of decode,
+// so playback drops to 5 fps to keep the decoder ahead of the play head.
+const TARGET_FPS       = MAX_WORKERS <= 2 ? 5 : 10;
 // No pre-roll: start playback the instant the first frame can be rendered.
 const INITIAL_BUFFER_FRAMES = 1;
 const BUFFER_AHEAD_SEC = 3;
