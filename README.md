@@ -138,7 +138,7 @@ lets the worker pool decode the frames of one segment in parallel.
 
 The modified TMC13 encoder that produces this packaging is available here:
 
-**https://xx**
+**https://github.com/IN2GM-Lab/mpeg-pcc-tmc13**
 
 Use it to encode your own point cloud sequences into the multi-frame G-PCC
 format NIMBUS expects, at as many rate points as you want representations.
