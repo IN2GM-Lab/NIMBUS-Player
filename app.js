@@ -105,6 +105,12 @@ const mDecodePoolFps   = document.getElementById('mDecodePoolFps');
 const bitrateDist      = document.getElementById('bitrateDist');
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+const IS_MOBILE = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Mobile is a demo view: cap segments so a phone loops a short teaser rather
+// than streaming the full 600-segment sequence it can't sustainably decode.
+const MOBILE_SEGMENT_CAP = 100;
+
 // Worker-pool size. Override with ?workers=N for experiments.
 // Auto-scales for the device — 16 × 64 MB WASM heap = ~1 GB baseline, which
 // mobile tabs OOM-kill on load. Empirically, 2 is the largest pool that
@@ -113,10 +119,9 @@ const bitrateDist      = document.getElementById('bitrateDist');
 const MAX_WORKERS = (() => {
   const v = parseInt(new URLSearchParams(location.search).get('workers'), 10);
   if (Number.isFinite(v) && v > 0) return v;
-  const cores    = navigator.hardwareConcurrency || 4;
-  const memGb    = navigator.deviceMemory || 0;   // undefined on Safari
-  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile) return 2;
+  const cores = navigator.hardwareConcurrency || 4;
+  const memGb = navigator.deviceMemory || 0;   // undefined on Safari
+  if (IS_MOBILE) return 2;
   if (memGb && memGb <= 4) return 2;
   if (cores <= 4) return 4;
   return 16;
@@ -133,9 +138,10 @@ const FORCED_REP = (() => {
 // 10 fps — one third of the source rate.  Every QoE figure here (buffer
 // seconds, stall, playback fps) is relative to THIS rate, not the source's.
 // Small pools (mobile default, or ?workers=2) can't sustain 10 fps of decode,
-// so playback drops to 3 fps — cutting decoder demand by ~2/3 versus desktop,
-// which lets the buffer rule climb past r03 on phones instead of thrashing.
-const TARGET_FPS       = MAX_WORKERS <= 2 ? 3 : 10;
+// so playback drops to 5 fps to keep the decoder ahead of the play head.
+// 3 fps was tried too but the visible choppiness wasn't worth the extra
+// decode headroom — 5 fps is the sweet spot for phones.
+const TARGET_FPS       = MAX_WORKERS <= 2 ? 5 : 10;
 // No pre-roll: start playback the instant the first frame can be rendered.
 const INITIAL_BUFFER_FRAMES = 1;
 const BUFFER_AHEAD_SEC = 3;
@@ -662,7 +668,8 @@ async function fetchAndParseMpd(url) {
   const startNum  = parseInt(st.getAttribute('startNumber') || '1', 10);
   const media     = st.getAttribute('media') || '';
   const segDurSec = duration / timescale;
-  const totalSegments = Math.ceil(totalSec / segDurSec);
+  let totalSegments = Math.ceil(totalSec / segDurSec);
+  if (IS_MOBILE) totalSegments = Math.min(totalSegments, MOBILE_SEGMENT_CAP);
 
   const reps = Array.from(doc.querySelectorAll('Representation'))
     .map(r => ({ id: r.getAttribute('id'), bandwidth: parseInt(r.getAttribute('bandwidth'), 10) }))
