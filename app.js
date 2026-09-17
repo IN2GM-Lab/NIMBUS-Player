@@ -107,16 +107,17 @@ const bitrateDist      = document.getElementById('bitrateDist');
 // ── Constants ─────────────────────────────────────────────────────────────────
 // Worker-pool size. Override with ?workers=N for experiments.
 // Auto-scales for the device — 16 × 64 MB WASM heap = ~1 GB baseline, which
-// mobile tabs (capped at ~1.5 GB on modern phones) OOM-kill on load.
-// Desktop: 16 · low-core desktop: 4 · mobile / low-memory: 8.
+// mobile tabs OOM-kill on load. Empirically, 2 is the largest pool that
+// survives on phones; 4+ crashes even on modern flagships.
+// Desktop: 16 · low-core desktop: 4 · mobile / low-memory: 2.
 const MAX_WORKERS = (() => {
   const v = parseInt(new URLSearchParams(location.search).get('workers'), 10);
   if (Number.isFinite(v) && v > 0) return v;
   const cores    = navigator.hardwareConcurrency || 4;
   const memGb    = navigator.deviceMemory || 0;   // undefined on Safari
   const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile) return 8;
-  if (memGb && memGb <= 4) return 4;
+  if (isMobile) return 2;
+  if (memGb && memGb <= 4) return 2;
   if (cores <= 4) return 4;
   return 16;
 })();
