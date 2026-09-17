@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NIMBUS Player</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-bg="midnight" data-ui="sea">
+    <header class="topbar panel-glass">
+      <div class="title-block">
+        <div class="eyebrow">⬡ NIMBUS Player</div>
+        <div class="title">G-PCC Adaptive Streaming</div>
+        <div class="subtitle">DASH · point cloud · WASM-decoded</div>
+      </div>
+      <div class="url-bar">
+        <span class="url-pill">MPD</span>
+        <input id="mpdUrl" type="url"
+          placeholder="http://localhost:10000/data/octree-longdress/stream.mpd"
+          value="http://localhost:10000/data/octree-longdress/stream.mpd" />
+        <select id="seqSel" class="seq-select" title="Downloaded sequence">
+          <option value="data/octree-longdress/stream.mpd">longdress</option>
+          <option value="data/octree-soldier/stream.mpd">soldier</option>
+          <option value="data/octree-redandblack/stream.mpd">redandblack</option>
+        </select>
+        <button id="loadBtn" class="btn-load">Load</button>
+        <button id="stopBtn" class="btn-stop" disabled>■ Stop</button>
+      </div>
+      <div class="top-actions">
+        <button id="viewModeToggle" class="ghost-btn">Mode: Orbit</button>
+        <button id="resetViewTopBtn" class="ghost-btn">Reset view</button>
+        <button id="fullscreenTopBtn" class="ghost-btn">⛶ Fullscreen</button>
+        <button id="advancedToggle" class="ghost-btn">✨ Advanced</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- ── Canvas column ──────────────────────────── -->
+      <div class="canvas-col">
+        <div class="canvas-panel">
+          <canvas id="glCanvas"></canvas>
+
+          <div class="overlay" id="overlay">
+            <div class="overlay-body">
+              <div class="overlay-hex">⬡</div>
+              <div id="overlayMsg">Enter an MPD URL and press Load</div>
+            </div>
+          </div>
+
+          <!-- controls legend, fades in on hover -->
+          <div class="controls-hint">
+            <span>Drag</span> Orbit &ensp;·&ensp;
+            <span>Right-drag</span> Pan &ensp;·&ensp;
+            <span>Scroll</span> Zoom &ensp;·&ensp;
+            <span>Dbl-click</span> Reset
+          </div>
+
+          <!-- quality chip pinned to canvas corner -->
+          <div class="canvas-badge" id="canvasBadge" style="display:none">
+            <span id="canvasBadgeText">—</span>
+          </div>
+        </div>
+
+        <div class="transport panel-glass">
+          <button id="back10Btn"    class="step-btn"  disabled title="-10 frames (Shift+←)">⏪</button>
+          <button id="prevFrameBtn" class="step-btn"  disabled title="-1 frame (←)">◀</button>
+          <button id="playBtn"      class="play-btn"  disabled title="Play / Pause (Space)">▶ Play</button>
+          <button id="nextFrameBtn" class="step-btn"  disabled title="+1 frame (→)">▶</button>
+          <button id="fwd10Btn"     class="step-btn"  disabled title="+10 frames (Shift+→)">⏩</button>
+          <span id="speedPill"      class="pill small">1×</span>
+
+          <button id="rotateBtn"    class="rotate-btn"  disabled title="Auto-rotate (R)">⟳</button>
+          <button id="resetViewBtn" class="tool-btn" title="Reset view (0)">⌂</button>
+          <button id="fullscreenBtn" class="tool-btn" title="Fullscreen (F)">⛶</button>
+
+          <div class="size-wrap" title="Point size">
+            <span class="size-icon size-icon-sm">•</span>
+            <input type="range" id="pointSizeSlider" min="0.001" max="0.02" step="0.0005" value="0.0035" />
+            <span class="size-icon size-icon-lg">●</span>
+          </div>
+
+          <div class="seek-col">
+            <div class="seek-track" id="seekTrack">
+              <div class="seek-buf"    id="seekBuf"></div>
+              <div class="seek-played" id="seekPlayed"></div>
+              <div class="seek-thumb"  id="seekThumb"></div>
+            </div>
+            <div class="seek-labels">
+              <span id="timeDisplay">0:00</span>
+              <span id="totalTime">0:00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hotkey hint strip (NAVIS-style) -->
+        <div class="hotkeys-hint">
+          <span><kbd>Space</kbd> play/pause</span>
+          <span><kbd>←</kbd>/<kbd>→</kbd> step</span>
+          <span><kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd> skip 10</span>
+          <span><kbd>R</kbd> auto-rotate</span>
+          <span><kbd>L</kbd> loop</span>
+          <span><kbd>0</kbd> reset</span>
+          <span><kbd>F</kbd> fullscreen</span>
+          <span><kbd>V</kbd> view mode</span>
+          <span>Fly mode: <kbd>WASD</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> roll · <kbd>Shift</kbd> boost</span>
+        </div>
+      </div>
+
+      <!-- ── Metrics sidebar ────────────────────────── -->
+      <aside class="sidebar">
+
+        <!-- Quality card -->
+        <div class="card quality-card">
+          <div class="card-label">Now Playing</div>
+          <div class="quality-display">
+            <span class="quality-id" id="mQualityId">—</span>
+            <span class="quality-tier" id="mQualityTier"></span>
+          </div>
+          <div class="quality-bw" id="mBandwidth">— bps</div>
+          <div class="quality-bars" id="qualityBars"></div>
+        </div>
+
+        <!-- Playback card -->
+        <div class="card">
+          <div class="card-label">Playback</div>
+          <div class="stat-row">
+            <span class="stat-key">Status</span>
+            <span class="stat-val" id="mStatus">
+              <span class="dot" id="statusDot"></span>
+              <span id="statusText">Idle</span>
+            </span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">FPS</span>
+            <span class="stat-val mono accent" id="mPlaybackFps">— fps</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Frame</span>
+            <span class="stat-val mono" id="mFrame">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Segment</span>
+            <span class="stat-val mono" id="mSegment">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Fetching</span>
+            <span class="stat-val" id="mFetching">—</span>
+          </div>
+        </div>
+
+        <!-- Buffer card -->
+        <div class="card">
+          <div class="card-label">Buffer</div>
+          <div class="buf-header">
+            <span class="stat-key">Level</span>
+            <span class="stat-val mono" id="mBufLevel">0.0 s</span>
+          </div>
+          <div class="buf-track-outer">
+            <div class="buf-track-inner" id="mBufBar">
+              <div class="buf-glow"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Network card -->
+        <div class="card">
+          <div class="card-label">Network</div>
+          <div class="stat-row">
+            <span class="stat-key">Throughput</span>
+            <span class="stat-val accent" id="mThroughput">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Last Seg</span>
+            <span class="stat-val mono" id="mLastDl">—</span>
+          </div>
+          <div class="sparkline-wrap">
+            <div class="sparkline-label">Throughput history</div>
+            <div id="sparkline" class="sparkline"></div>
+          </div>
+        </div>
+
+        <!-- Stream stats card -->
+        <div class="card">
+          <div class="card-label">Stream Stats</div>
+          <div class="stat-row">
+            <span class="stat-key">Avg Bitrate</span>
+            <span class="stat-val accent" id="mAvgBitrate">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Total Stall</span>
+            <span class="stat-val mono" id="mTotalStall">0.0 s</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Decode Rate</span>
+            <span class="stat-val mono" id="mDecodeRate">— fps</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Workers</span>
+            <span class="stat-val mono" id="mWorkers">0 / 16</span>
+          </div>
+        </div>
+
+        <!-- Session summary card -->
+        <div class="card">
+          <div class="card-label">Session</div>
+          <div class="stat-row">
+            <span class="stat-key">Runtime</span>
+            <span class="stat-val mono" id="mRuntime">0:00</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Downloaded</span>
+            <span class="stat-val mono" id="mDownloaded">0 B</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Frames Played</span>
+            <span class="stat-val mono" id="mFramesPlayed">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Peak Throughput</span>
+            <span class="stat-val mono" id="mPeakThroughput">— bps</span>
+          </div>
+          <div class="sparkline-wrap">
+            <div class="sparkline-label">Buffer history</div>
+            <div id="bufferSparkline" class="sparkline"></div>
+          </div>
+        </div>
+
+        <!-- Quality timeline card (full-width) -->
+        <div class="card timeline-card">
+          <div class="card-label">Quality timeline · per segment</div>
+          <div class="timeline-wrap">
+            <div id="qualityTimeline" class="quality-timeline"></div>
+            <div class="timeline-legend" id="timelineLegend"></div>
+          </div>
+        </div>
+
+        <!-- Decode performance card -->
+        <div class="card">
+          <div class="card-label">Decode Performance</div>
+          <div class="stat-row">
+            <span class="stat-key">Per job (1 worker)</span>
+            <span class="stat-val mono" id="mDecodePerWorker">— ms</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">÷ workers</span>
+            <span class="stat-val mono" id="mDecodeDivisor">— ×</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">= Per frame (pool)</span>
+            <span class="stat-val mono accent" id="mDecodeEffective">— ms</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-key">Pool fps</span>
+            <span class="stat-val mono" id="mDecodePoolFps">— fps</span>
+          </div>
+        </div>
+
+        <!-- Bitrate distribution card -->
+        <div class="card">
+          <div class="card-label">Bitrate Distribution</div>
+          <div id="bitrateDist" class="bitrate-dist"></div>
+        </div>
+
+        <!-- Representations card -->
+        <div class="card">
+          <div class="card-label">Representations</div>
+          <div id="repList" class="rep-list"></div>
+        </div>
+
+        <!-- ABR card -->
+        <div class="card abr-card">
+          <div class="card-label abr-label-row">
+            ABR Log
+            <label class="toggle">
+              <input type="checkbox" id="abrEnabled" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              <span class="toggle-text">Auto</span>
+            </label>
+          </div>
+          <select id="manualQuality" disabled class="manual-sel">
+            <option>—</option>
+          </select>
+          <div class="abr-log" id="abrLog"></div>
+        </div>
+
+      </aside>
+    </div>
+
+    <!-- Loader modal (NAVIS-style centered) -->
+    <div id="loaderModal" class="loader-modal panel-glass">
+      <div class="loader-track"><div id="loaderBar" class="loader-bar"></div></div>
+      <div id="loaderText" class="loader-text">Buffering…</div>
+    </div>
+
+    <!-- Advanced drawer (NAVIS-style) -->
+    <div id="advancedPanel" class="advanced-panel panel-glass">
+      <div class="advanced-header">
+        <div class="title-block">
+          <div class="eyebrow">Advanced tuning</div>
+          <div class="title">Navigation · rendering · themes</div>
+          <div class="subtitle">All settings stay live while the cloud is visible</div>
+        </div>
+        <button id="advancedClose" class="ghost-btn small">×</button>
+      </div>
+      <div class="advanced-grid">
+        <div class="advanced-group">
+          <div class="group-title">Rendering &amp; look</div>
+          <div class="row"><label for="colorModeSel">Colour mode</label>
+            <select id="colorModeSel">
+              <option value="source">Vertex colours</option>
+              <option value="greyscale">Greyscale</option>
+              <option value="mono">Monochrome</option>
+            </select>
+          </div>
+          <div class="row"><label>Point size</label>
+            <span class="value-badge" id="pointSizeBadge">0.0035</span>
+          </div>
+          <input id="pointSizeAdv" type="range" min="0.001" max="0.02" step="0.0005" value="0.0035">
+          <label class="check-row">
+            <input id="floorToggle" type="checkbox">
+            <span>Show floor plane</span>
+          </label>
+          <label class="check-row">
+            <input id="autoRotateToggle" type="checkbox">
+            <span>Auto-rotate</span>
+          </label>
+        </div>
+        <div class="advanced-group">
+          <div class="group-title">Backdrop</div>
+          <div class="row"><label for="bgThemeSel">Background</label>
+            <select id="bgThemeSel">
+              <option value="midnight">Midnight</option>
+              <option value="aurora">Aurora</option>
+              <option value="studio">Studio</option>
+              <option value="paper">Paper</option>
+              <option value="light">Light</option>
+              <option value="custom">Custom colour</option>
+            </select>
+          </div>
+          <div class="row"><label for="bgColorPicker">Custom</label>
+            <input type="color" id="bgColorPicker" value="#030610">
+          </div>
+          <div class="row"><label for="uiThemeSel">UI accent</label>
+            <select id="uiThemeSel">
+              <option value="sea">Sea</option>
+              <option value="citrus">Citrus</option>
+              <option value="violet">Violet</option>
+              <option value="mint">Mint</option>
+            </select>
+          </div>
+        </div>
+        <div class="advanced-group">
+          <div class="group-title">Navigation feel</div>
+          <div class="row"><label>Fly base speed</label>
+            <span class="value-badge" id="flyBaseSpeedBadge">3.2</span>
+          </div>
+          <input id="flyBaseSpeedAdv" type="range" min="0.5" max="12" step="0.1" value="3.2">
+          <div class="row"><label>Boost (Shift)</label>
+            <span class="value-badge" id="flyBoostBadge">3.0×</span>
+          </div>
+          <input id="flyBoostAdv" type="range" min="1" max="6" step="0.1" value="3.0">
+          <div class="row"><label>Precision (Ctrl)</label>
+            <span class="value-badge" id="flySlowBadge">0.35×</span>
+          </div>
+          <input id="flySlowAdv" type="range" min="0.1" max="1" step="0.05" value="0.35">
+          <div class="row"><label>Look sensitivity</label>
+            <span class="value-badge" id="lookSensBadge">2.2</span>
+          </div>
+          <input id="lookSensAdv" type="range" min="0.8" max="4" step="0.1" value="2.2">
+        </div>
+        <div class="advanced-group">
+          <div class="group-title">Playback</div>
+          <div class="row"><label for="speedSel">Speed</label>
+            <select id="speedSel">
+              <option value="0.25">0.25×</option>
+              <option value="0.5">0.5×</option>
+              <option value="0.75">0.75×</option>
+              <option value="1" selected>1×</option>
+              <option value="1.5">1.5×</option>
+              <option value="2">2×</option>
+              <option value="3">3×</option>
+            </select>
+          </div>
+          <div class="row"><label for="abrMaxSel">ABR ceiling</label>
+            <select id="abrMaxSel">
+              <option value="999">No cap (use up to r05)</option>
+              <option value="3">≤ r04</option>
+              <option value="2">≤ r03 (recommended for 30 fps)</option>
+              <option value="1">≤ r02</option>
+              <option value="0">r01 only</option>
+            </select>
+          </div>
+          <label class="check-row">
+            <input id="loopToggle" type="checkbox" checked>
+            <span>Loop at end</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <script src="vendor/three.min.js"></script>
+    <script src="vendor/OrbitControls.js"></script>
+    <!-- Module script: app.js keeps its own scope and exposes only
+         window.__nimbus.  Deferred by definition, so it runs after the two
+         classic scripts above have defined THREE and THREE.OrbitControls. -->
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

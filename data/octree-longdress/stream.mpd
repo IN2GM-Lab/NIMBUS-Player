@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  30 fps stream re-packaged into 600 sub-segments per representation.
+  Each .bin contains 10 consecutive frames (1/3 second of content at 30 fps).
+  No frames discarded; total play time still 200 s.
+  Originals (200 × 30-frame segments) preserved in r0N.orig/.
+-->
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     profiles="urn:mpeg:dash:profile:isoff-on-demand:2011"
+     type="static"
+     mediaPresentationDuration="PT0H0M600S"
+     maxSegmentDuration="PT1S"
+     minBufferTime="PT0.1S">
+  <Period id="0" start="PT0S">
+    <AdaptationSet
+        id="0"
+        contentType="application"
+        segmentAlignment="true"
+        bitstreamSwitching="true"
+        startWithSAP="1">
+      <!-- 30 timescale units per second, 10 units per segment = 10/30 s = 0.333 s -->
+      <SegmentTemplate
+          timescale="10"
+          duration="10"
+          startNumber="1"
+          media="$RepresentationID$/$Number%04d$.bin" />
+      <Representation
+          id="r01"
+          bandwidth="184346"
+          mimeType="application/octet-stream"
+          codecs="avc1.7a001e" />
+      <Representation
+          id="r02"
+          bandwidth="622753"
+          mimeType="application/octet-stream"
+          codecs="avc1.7a001e" />
+      <Representation
+          id="r03"
+          bandwidth="2394886"
+          mimeType="application/octet-stream"
+          codecs="avc1.7a001e" />
+      <Representation
+          id="r04"
+          bandwidth="6966929"
+          mimeType="application/octet-stream"
+          codecs="avc1.7a001e" />
+      <Representation
+          id="r05"
+          bandwidth="13246127"
+          mimeType="application/octet-stream"
+          codecs="avc1.7a001e" />
+    </AdaptationSet>
+  </Period>
+</MPD>
