@@ -4,6 +4,20 @@ NIMBUS is a browser-native player for dynamic adaptive streaming of G-PCC compre
 
 Point a modern browser at an MPD, and NIMBUS fetches, decodes, and renders compressed point cloud video with orbit or fly navigation.
 
+## Citation
+
+If you use this work, please cite our paper:
+
+```bibtex
+@inproceedings{sidhu2026nimbus,
+  title={NIMBUS: A Browser-Native Player for Dynamic Adaptive G-PCC Point Cloud Streaming},
+  author={Sidhu, Jashan and Bentaleb, Abdelhak},
+  booktitle={2026 IEEE International Workshop on Multimedia Signal Processing (MMSP)},
+  year={2026},
+  organization={IEEE}
+}
+```
+
 ## Get the code
 ```bash
 git clone https://github.com/IN2GM-Lab/NIMBUS-Player.git
@@ -231,17 +245,3 @@ Contributions are welcome.
 Feel free to open an issue or submit a pull request for bug fixes, improvements, or new features.
 
 By contributing, you agree that your contributions will be licensed under Apache 2.0.
-
-## Citation
-
-If you use this work, please cite our paper:
-
-```bibtex
-@inproceedings{sidhu2026nimbus,
-  title={NIMBUS: A Browser-Native Player for Dynamic Adaptive G-PCC Point Cloud Streaming},
-  author={Sidhu, Jashan and Bentaleb, Abdelhak},
-  booktitle={2026 IEEE International Workshop on Multimedia Signal Processing (MMSP)},
-  year={2026},
-  organization={IEEE}
-}
-```
